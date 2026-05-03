@@ -18,14 +18,14 @@ showPMNYMarketMaker = input.bool(true, "Enable PM Bias System", group=groupStand
 showFpiBiasTable = input.bool(true, "Show Bias Table", group=groupStandalone, display=display.none)
 usePMEarlyStart = input.bool(false, "PM Session Early Start?", group=groupStandalone, display=display.none)
 
-tradeStartHour = input.int(9, "Trading Start Hour", minval=0, maxval=23, group=groupTradingWindows)
-tradeStartMinute = input.int(30, "Trading Start Minute", minval=0, maxval=59, group=groupTradingWindows)
+tradeStartHour = input.int(9, "Trading Start Hour", minval=0, maxval=23, group=groupTradingWindows, display=display.none)
+tradeStartMinute = input.int(30, "Trading Start Minute", minval=0, maxval=59, group=groupTradingWindows, display=display.none)
 amTradeEndHour = input.int(11, "AM Trade End Hour", minval=0, maxval=23, group=groupTradingWindows, display=display.none)
 amTradeEndMinute = input.int(59, "AM Trade End Minute", minval=0, maxval=59, group=groupTradingWindows, display=display.none)
 pmSessionStartHour = input.int(11, "PM Session Start Hour", minval=0, maxval=23, group=groupTradingWindows, display=display.none)
 pmSessionStartMinute = input.int(30, "PM Session Start Minute", minval=0, maxval=59, group=groupTradingWindows, display=display.none)
-pmTradeEndHour = input.int(16, "Trading End Hour", minval=0, maxval=23, group=groupTradingWindows)
-pmTradeEndMinute = input.int(30, "Trading End Minute", minval=0, maxval=59, group=groupTradingWindows)
+pmTradeEndHour = input.int(16, "Trading End Hour", minval=0, maxval=23, group=groupTradingWindows, display=display.none)
+pmTradeEndMinute = input.int(30, "Trading End Minute", minval=0, maxval=59, group=groupTradingWindows, display=display.none)
 
 showLondonSessionLevels = input.bool(true, "Draw London Session 2AM-5AM High/Low", group=groupSessionLevels, display=display.none)
 showAsianSessionLevels = input.bool(true, "Draw Asian Session 7PM-12AM High/Low", group=groupSessionLevels, display=display.none)
@@ -119,12 +119,12 @@ biasStackSpacingATR = input.float(0.35, "Stack Label Spacing ATR", minval=0.05, 
 
 groupRisk = "- - - - - - - - - Risk / Stop Loss - - - - - - - - -"
 
-defaultStopLossDistancePoints = input.float(30.0, "Default Stop Loss Distance From Entry", minval=0.25, step=0.25, group=groupRisk)
-stopLossMode = input.string("Structure", "Stop Loss Mode", options=["Structure", "Default Distance", "Wider Of Both"], group=groupRisk)
-enableTakeProfit = input.bool(true, "Enable Take Profit", group=groupRisk)
-takeProfitDistancePoints = input.float(60.0, "Take Profit Distance From Entry", minval=0.25, step=0.25, group=groupRisk)
-lockTakeProfitToFirstEntry = input.bool(true, "Lock TP To First Entry", group=groupRisk)
-blockTradesAfterTakeProfit = input.bool(false, "Block New Trades After Take Profit", group=groupRisk)
+defaultStopLossDistancePoints = input.float(30.0, "Default Stop Loss Distance From Entry", minval=0.25, step=0.25, group=groupRisk, display=display.none)
+stopLossMode = input.string("Structure", "Stop Loss Mode", options=["Structure", "Default Distance", "Wider Of Both"], group=groupRisk, display=display.none)
+enableTakeProfit = input.bool(true, "Enable Take Profit", group=groupRisk, display=display.none)
+takeProfitDistancePoints = input.float(60.0, "Take Profit Distance From Entry", minval=0.25, step=0.25, group=groupRisk, display=display.none)
+lockTakeProfitToFirstEntry = input.bool(true, "Lock TP To First Entry", group=groupRisk, display=display.none)
+blockTradesAfterTakeProfit = input.bool(false, "Block New Trades After Take Profit", group=groupRisk, display=display.none)
 
 // Macro extreme engine: focuses entries around macro highs/lows and their FPI boundaries.
 groupMacroExtreme = "- - - - - - - - - Macro Extreme Engine - - - - - - - - -"
@@ -601,6 +601,10 @@ var array<MMStruct> amMMFVGs = array.new<MMStruct>()
 var array<MMStruct> amMMOBs = array.new<MMStruct>()
 var array<MMStruct> pmMMFVGs = array.new<MMStruct>()
 var array<MMStruct> pmMMOBs = array.new<MMStruct>()
+var int amLastBullOBStart = na
+var int amLastBearOBStart = na
+var int pmLastBullOBStart = na
+var int pmLastBearOBStart = na
 
 var table fpiBiasTable = table.new(position.bottom_left, 2, 14, border_width=1)
 var label fpiLowProbabilityLabel = na
@@ -783,6 +787,10 @@ if biasResetNow
     array.clear(amMMOBs)
     array.clear(pmMMFVGs)
     array.clear(pmMMOBs)
+    amLastBullOBStart := na
+    amLastBearOBStart := na
+    pmLastBullOBStart := na
+    pmLastBearOBStart := na
 
     if not na(fpiLowProbabilityLabel)
         label.delete(fpiLowProbabilityLabel)
@@ -982,28 +990,32 @@ mmBearFVG = close[1] < open[1] and low[2] > high[0]
 
 if enableMMStructureEngine and timeframe.period == "1"
     if showAMNY and isTimeInFpiSession(time[1])
+        [amBullOBFoundNow, amBullOBHighNow, amBullOBLowNow, amBullOBStartNow] = findBullOB(mmOBRunLookback)
+        if enableMMOBEntries and amBullOBFoundNow and (na(amLastBullOBStart) or amBullOBStartNow != amLastBullOBStart)
+            array.push(amMMOBs, MMStruct.new(1, 2, 1, amBullOBHighNow, amBullOBLowNow, amBullOBStartNow, bar_index, false, false, false, int(na), false))
+            amLastBullOBStart := amBullOBStartNow
+        [amBearOBFoundNow, amBearOBHighNow, amBearOBLowNow, amBearOBStartNow] = findBearOB(mmOBRunLookback)
+        if enableMMOBEntries and amBearOBFoundNow and (na(amLastBearOBStart) or amBearOBStartNow != amLastBearOBStart)
+            array.push(amMMOBs, MMStruct.new(1, 2, -1, amBearOBHighNow, amBearOBLowNow, amBearOBStartNow, bar_index, false, false, false, int(na), false))
+            amLastBearOBStart := amBearOBStartNow
         if mmBullFVG
             array.push(amMMFVGs, MMStruct.new(1, 1, 1, low[0], high[2], bar_index - 2, bar_index, false, false, false, int(na), false))
-            [bullOBFound, bullOBHigh, bullOBLow, bullOBStart] = findBullOB(mmOBRunLookback)
-            if bullOBFound
-                array.push(amMMOBs, MMStruct.new(1, 2, 1, bullOBHigh, bullOBLow, bullOBStart, bar_index, false, false, false, int(na), false))
         if mmBearFVG
             array.push(amMMFVGs, MMStruct.new(1, 1, -1, low[2], high[0], bar_index - 2, bar_index, false, false, false, int(na), false))
-            [bearOBFound, bearOBHigh, bearOBLow, bearOBStart] = findBearOB(mmOBRunLookback)
-            if bearOBFound
-                array.push(amMMOBs, MMStruct.new(1, 2, -1, bearOBHigh, bearOBLow, bearOBStart, bar_index, false, false, false, int(na), false))
 
     if showPMNYMarketMaker and isTimeInPMBiasFpiSession(time[1])
+        [pmBullOBFoundNow, pmBullOBHighNow, pmBullOBLowNow, pmBullOBStartNow] = findBullOB(mmOBRunLookback)
+        if enableMMOBEntries and pmBullOBFoundNow and (na(pmLastBullOBStart) or pmBullOBStartNow != pmLastBullOBStart)
+            array.push(pmMMOBs, MMStruct.new(2, 2, 1, pmBullOBHighNow, pmBullOBLowNow, pmBullOBStartNow, bar_index, false, false, false, int(na), false))
+            pmLastBullOBStart := pmBullOBStartNow
+        [pmBearOBFoundNow, pmBearOBHighNow, pmBearOBLowNow, pmBearOBStartNow] = findBearOB(mmOBRunLookback)
+        if enableMMOBEntries and pmBearOBFoundNow and (na(pmLastBearOBStart) or pmBearOBStartNow != pmLastBearOBStart)
+            array.push(pmMMOBs, MMStruct.new(2, 2, -1, pmBearOBHighNow, pmBearOBLowNow, pmBearOBStartNow, bar_index, false, false, false, int(na), false))
+            pmLastBearOBStart := pmBearOBStartNow
         if mmBullFVG
             array.push(pmMMFVGs, MMStruct.new(2, 1, 1, low[0], high[2], bar_index - 2, bar_index, false, false, false, int(na), false))
-            [pmBullOBFound, pmBullOBHigh, pmBullOBLow, pmBullOBStart] = findBullOB(mmOBRunLookback)
-            if pmBullOBFound
-                array.push(pmMMOBs, MMStruct.new(2, 2, 1, pmBullOBHigh, pmBullOBLow, pmBullOBStart, bar_index, false, false, false, int(na), false))
         if mmBearFVG
             array.push(pmMMFVGs, MMStruct.new(2, 1, -1, low[2], high[0], bar_index - 2, bar_index, false, false, false, int(na), false))
-            [pmBearOBFound, pmBearOBHigh, pmBearOBLow, pmBearOBStart] = findBearOB(mmOBRunLookback)
-            if pmBearOBFound
-                array.push(pmMMOBs, MMStruct.new(2, 2, -1, pmBearOBHigh, pmBearOBLow, pmBearOBStart, bar_index, false, false, false, int(na), false))
 
 updateMMStructStates(amMMFVGs)
 updateMMStructStates(amMMOBs)
