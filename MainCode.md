@@ -98,6 +98,7 @@ warningLabelTextColor = input.color(color.yellow, "AM Warning Label Text Color",
 pmWarningLabelTextColor = input.color(color.yellow, "PM Warning Label Text Color", group=groupFpiBiasTable, display=display.none)
 
 showBiasSignalArrows = input.bool(true, "Enable Entry / Exit Arrows", group=groupFpiBiasTable)
+tradeExecutionMode = input.string("Intraday Holding", "Trade Mode", options=["Intraday Holding", "30m Scalping"], group=groupFpiBiasTable)
 enableEntryAlerts = input.bool(true, "Enable Entry Alerts", group=groupFpiBiasTable, display=display.none)
 maxBiasEntriesPerDay = input.int(5, "Max Entries Per Day", minval=1, maxval=50, group=groupFpiBiasTable, display=display.none)
 maxPyramidEntriesPerTrade = input.int(1, "Max Pyramid Entries Per Trade", minval=1, maxval=20, group=groupFpiBiasTable, display=display.none)
@@ -1462,10 +1463,10 @@ amBearRangeZoneTouch = (amBearOBRangeFound and bearZoneRetestExit(amBearOBRangeH
 pmBullRangeZoneTouch = (pmBullOBRangeFound and bullZoneRetestExit(pmBullOBRangeHigh, pmBullOBRangeLow)) or (pmBullFVGRangeFound and bullZoneRetestExit(pmBullFVGRangeHigh, pmBullFVGRangeLow))
 pmBearRangeZoneTouch = (pmBearOBRangeFound and bearZoneRetestExit(pmBearOBRangeHigh, pmBearOBRangeLow)) or (pmBearFVGRangeFound and bearZoneRetestExit(pmBearFVGRangeHigh, pmBearFVGRangeLow))
 
-amBullRangeTrigger = enableRangeExtremeEngine and amActiveRangeReady and (levelRejectsLow(amActiveRangeLow) or amBullRangeZoneTouch)
-amBearRangeTrigger = enableRangeExtremeEngine and amActiveRangeReady and (levelRejectsHigh(amActiveRangeHigh) or amBearRangeZoneTouch)
-pmBullRangeTrigger = enableRangeExtremeEngine and pmActiveRangeReady and (levelRejectsLow(pmActiveRangeLow) or pmBullRangeZoneTouch)
-pmBearRangeTrigger = enableRangeExtremeEngine and pmActiveRangeReady and (levelRejectsHigh(pmActiveRangeHigh) or pmBearRangeZoneTouch)
+amBullRangeTrigger = enableRangeExtremeEngine and amActiveRangeReady and amBullRangeZoneTouch and levelRejectsLow(amActiveRangeLow)
+amBearRangeTrigger = enableRangeExtremeEngine and amActiveRangeReady and amBearRangeZoneTouch and levelRejectsHigh(amActiveRangeHigh)
+pmBullRangeTrigger = enableRangeExtremeEngine and pmActiveRangeReady and pmBullRangeZoneTouch and levelRejectsLow(pmActiveRangeLow)
+pmBearRangeTrigger = enableRangeExtremeEngine and pmActiveRangeReady and pmBearRangeZoneTouch and levelRejectsHigh(pmActiveRangeHigh)
 
 amBullRangeSL = not na(amStructRangeLow) and amBullRangeZoneTouch ? amStructRangeLow - rangeExtremeStopBufferPoints : amActiveRangeLow - rangeExtremeStopBufferPoints
 amBearRangeSL = not na(amStructRangeHigh) and amBearRangeZoneTouch ? amStructRangeHigh + rangeExtremeStopBufferPoints : amActiveRangeHigh + rangeExtremeStopBufferPoints
@@ -1476,6 +1477,11 @@ amBullRangeName = amBullRangeZoneTouch ? "Lowest OB/Imb Range Low" : "Active Ran
 amBearRangeName = amBearRangeZoneTouch ? "Highest OB/Imb Range High" : "Active Range High"
 pmBullRangeName = pmBullRangeZoneTouch ? "Lowest OB/Imb Range Low" : "Active Range Low"
 pmBearRangeName = pmBearRangeZoneTouch ? "Highest OB/Imb Range High" : "Active Range High"
+
+isScalpMode = tradeExecutionMode == "30m Scalping"
+currSlot = hour(time, timezone) * 2 + (minute(time, timezone) >= 30 ? 1 : 0)
+newThirtyMinuteSlot = ta.change(currSlot) != 0
+slotCanOpenTrade = not isScalpMode or newThirtyMinuteSlot
 
 // ============================================================================
 // Selected Structure Zone Drawing
@@ -1587,6 +1593,11 @@ amBearRangeExtremeSetup = showBiasSignalArrows and enableRangeExtremeEngine and 
 pmBullRangeExtremeSetup = showBiasSignalArrows and enableRangeExtremeEngine and pmTradeWindow and barstate.isconfirmed and pmBullRangeTrigger
 pmBearRangeExtremeSetup = showBiasSignalArrows and enableRangeExtremeEngine and pmTradeWindow and barstate.isconfirmed and pmBearRangeTrigger
 
+amBullRangeExtremeSetup := amBullRangeExtremeSetup and slotCanOpenTrade
+amBearRangeExtremeSetup := amBearRangeExtremeSetup and slotCanOpenTrade
+pmBullRangeExtremeSetup := pmBullRangeExtremeSetup and slotCanOpenTrade
+pmBearRangeExtremeSetup := pmBearRangeExtremeSetup and slotCanOpenTrade
+
 amBullMacroTriggerLevel = bullLevelReject(amMacroRangeLow) ? amMacroRangeLow : bullLevelReject(bias950Low) ? bias950Low : bullLevelReject(bias930Low) ? bias930Low : bullLevelReject(amSessionLow) ? amSessionLow : bullLevelReject(londonSessionLow) ? londonSessionLow : bullLevelReject(nyPreSessionLow) ? nyPreSessionLow : na
 amBearMacroTriggerLevel = bearLevelReject(amMacroRangeHigh) ? amMacroRangeHigh : bearLevelReject(bias950High) ? bias950High : bearLevelReject(bias930High) ? bias930High : bearLevelReject(amSessionHigh) ? amSessionHigh : bearLevelReject(londonSessionHigh) ? londonSessionHigh : bearLevelReject(nyPreSessionHigh) ? nyPreSessionHigh : na
 pmBullMacroTriggerLevel = bullLevelReject(pmSelectedMacroRangeLow) ? pmSelectedMacroRangeLow : bullLevelReject(pm_bias1250Low) ? pm_bias1250Low : bullLevelReject(pm_bias1200Low) ? pm_bias1200Low : bullLevelReject(pmSessionLow) ? pmSessionLow : bullLevelReject(close1159) ? close1159 : bullLevelReject(asianSessionLow) ? asianSessionLow : bullLevelReject(nyPreSessionLow) ? nyPreSessionLow : na
@@ -1614,6 +1625,28 @@ pmBullOBEntrySetup = showBiasSignalArrows and enableMMStructureEngine and enable
 pmBearOBEntrySetup = showBiasSignalArrows and enableMMStructureEngine and enableMMOBEntries and pmTradeWindow and barstate.isconfirmed and pmBearStructureAllowed and pmBearOBRetestExit and pmBearStructureMature and pmBearOBMacroOk
 pmBullFVGEntrySetup = showBiasSignalArrows and enableMMStructureEngine and enableMMImbalanceEntries and pmTradeWindow and barstate.isconfirmed and pmBullStructureAllowed and pmBullFVGRetestExit and pmBullStructureMature and pmBullFVGMacroOk
 pmBearFVGEntrySetup = showBiasSignalArrows and enableMMStructureEngine and enableMMImbalanceEntries and pmTradeWindow and barstate.isconfirmed and pmBearStructureAllowed and pmBearFVGRetestExit and pmBearStructureMature and pmBearFVGMacroOk
+
+if tradeExecutionMode == "Intraday Holding" or tradeExecutionMode == "30m Scalping"
+    amBullMacroExtremeSetup := false
+    amBearMacroExtremeSetup := false
+    pmBullMacroExtremeSetup := false
+    pmBearMacroExtremeSetup := false
+    amBullContinuationSetup := false
+    amBearContinuationSetup := false
+    amBullReversalSetup := false
+    amBearReversalSetup := false
+    pmBullContinuationSetup := false
+    pmBearContinuationSetup := false
+    pmBullReversalSetup := false
+    pmBearReversalSetup := false
+    amBullOBEntrySetup := false
+    amBearOBEntrySetup := false
+    amBullFVGEntrySetup := false
+    amBearFVGEntrySetup := false
+    pmBullOBEntrySetup := false
+    pmBearOBEntrySetup := false
+    pmBullFVGEntrySetup := false
+    pmBearFVGEntrySetup := false
 
 reversalBlockedNow = showReversalFilterWarnings and enableReversalMaturityFilter and barstate.islast and ((amTradeWindow and ((amBullReversalConfirmed and not amBullReversalMature) or (amBearReversalConfirmed and not amBearReversalMature) or (amUseBullExtreme and not amBullReversalMature) or (amUseBearExtreme and not amBearReversalMature))) or (pmTradeWindow and ((pmBullReversalConfirmed and not pmBullReversalMature) or (pmBearReversalConfirmed and not pmBearReversalMature) or (pmUseBullExtreme and not pmBullReversalMature) or (pmUseBearExtreme and not pmBearReversalMature))))
 
