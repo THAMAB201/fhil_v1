@@ -474,6 +474,12 @@ levelRejectsLow(float _level) =>
 levelRejectsHigh(float _level) =>
     not na(_level) and high >= _level - rangeExtremeProximityPoints and (not requireRangeReclaimClose or close < _level)
 
+nearLowExtreme(float _zoneLow, float _rangeLow) =>
+    not na(_zoneLow) and not na(_rangeLow) and _zoneLow <= _rangeLow + rangeExtremeProximityPoints
+
+nearHighExtreme(float _zoneHigh, float _rangeHigh) =>
+    not na(_zoneHigh) and not na(_rangeHigh) and _zoneHigh >= _rangeHigh - rangeExtremeProximityPoints
+
 findBullOB(_maxBack) =>
     bool found = false
     float lowestClose = na
@@ -1463,10 +1469,18 @@ amBearRangeZoneTouch = (amBearOBRangeFound and bearZoneRetestExit(amBearOBRangeH
 pmBullRangeZoneTouch = (pmBullOBRangeFound and bullZoneRetestExit(pmBullOBRangeHigh, pmBullOBRangeLow)) or (pmBullFVGRangeFound and bullZoneRetestExit(pmBullFVGRangeHigh, pmBullFVGRangeLow))
 pmBearRangeZoneTouch = (pmBearOBRangeFound and bearZoneRetestExit(pmBearOBRangeHigh, pmBearOBRangeLow)) or (pmBearFVGRangeFound and bearZoneRetestExit(pmBearFVGRangeHigh, pmBearFVGRangeLow))
 
-amBullRangeTrigger = enableRangeExtremeEngine and amActiveRangeReady and amBullRangeZoneTouch and levelRejectsLow(amActiveRangeLow)
-amBearRangeTrigger = enableRangeExtremeEngine and amActiveRangeReady and amBearRangeZoneTouch and levelRejectsHigh(amActiveRangeHigh)
-pmBullRangeTrigger = enableRangeExtremeEngine and pmActiveRangeReady and pmBullRangeZoneTouch and levelRejectsLow(pmActiveRangeLow)
-pmBearRangeTrigger = enableRangeExtremeEngine and pmActiveRangeReady and pmBearRangeZoneTouch and levelRejectsHigh(pmActiveRangeHigh)
+amOpeningWindow = isTimeBetween(time, tradeStartHour, tradeStartMinute, 10, 0)
+pmOpeningWindow = isTimeBetween(time, pmSessionStartHour, pmSessionStartMinute, 12, 0)
+
+amBullStructNearLow = (amBullOBRangeFound and nearLowExtreme(amBullOBRangeLow, amActiveRangeLow)) or (amBullFVGRangeFound and nearLowExtreme(amBullFVGRangeLow, amActiveRangeLow))
+amBearStructNearHigh = (amBearOBRangeFound and nearHighExtreme(amBearOBRangeHigh, amActiveRangeHigh)) or (amBearFVGRangeFound and nearHighExtreme(amBearFVGRangeHigh, amActiveRangeHigh))
+pmBullStructNearLow = (pmBullOBRangeFound and nearLowExtreme(pmBullOBRangeLow, pmActiveRangeLow)) or (pmBullFVGRangeFound and nearLowExtreme(pmBullFVGRangeLow, pmActiveRangeLow))
+pmBearStructNearHigh = (pmBearOBRangeFound and nearHighExtreme(pmBearOBRangeHigh, pmActiveRangeHigh)) or (pmBearFVGRangeFound and nearHighExtreme(pmBearFVGRangeHigh, pmActiveRangeHigh))
+
+amBullRangeTrigger = enableRangeExtremeEngine and amActiveRangeReady and amBullRangeZoneTouch and (levelRejectsLow(amActiveRangeLow) or (amOpeningWindow and amBullStructNearLow))
+amBearRangeTrigger = enableRangeExtremeEngine and amActiveRangeReady and amBearRangeZoneTouch and (levelRejectsHigh(amActiveRangeHigh) or (amOpeningWindow and amBearStructNearHigh))
+pmBullRangeTrigger = enableRangeExtremeEngine and pmActiveRangeReady and pmBullRangeZoneTouch and (levelRejectsLow(pmActiveRangeLow) or (pmOpeningWindow and pmBullStructNearLow))
+pmBearRangeTrigger = enableRangeExtremeEngine and pmActiveRangeReady and pmBearRangeZoneTouch and (levelRejectsHigh(pmActiveRangeHigh) or (pmOpeningWindow and pmBearStructNearHigh))
 
 amBullRangeSL = not na(amStructRangeLow) and amBullRangeZoneTouch ? amStructRangeLow - rangeExtremeStopBufferPoints : amActiveRangeLow - rangeExtremeStopBufferPoints
 amBearRangeSL = not na(amStructRangeHigh) and amBearRangeZoneTouch ? amStructRangeHigh + rangeExtremeStopBufferPoints : amActiveRangeHigh + rangeExtremeStopBufferPoints
