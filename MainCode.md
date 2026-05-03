@@ -1619,6 +1619,17 @@ amBearRangeExtremeSetup = showBiasSignalArrows and enableRangeExtremeEngine and 
 pmBullRangeExtremeSetup = showBiasSignalArrows and enableRangeExtremeEngine and pmTradeWindow and barstate.isconfirmed and pmBullRangeTrigger
 pmBearRangeExtremeSetup = showBiasSignalArrows and enableRangeExtremeEngine and pmTradeWindow and barstate.isconfirmed and pmBearRangeTrigger
 
+intradayMode = tradeExecutionMode == "Intraday Holding"
+amBiasAlignedBull = not intradayMode or not bias930Found or bias930Dir == 1
+amBiasAlignedBear = not intradayMode or not bias930Found or bias930Dir == -1
+pmBiasAlignedBull = not intradayMode or not pm_bias1200Found or pm_bias1200Dir == 1
+pmBiasAlignedBear = not intradayMode or not pm_bias1200Found or pm_bias1200Dir == -1
+
+amBullRangeExtremeSetup := amBullRangeExtremeSetup and amBiasAlignedBull
+amBearRangeExtremeSetup := amBearRangeExtremeSetup and amBiasAlignedBear
+pmBullRangeExtremeSetup := pmBullRangeExtremeSetup and pmBiasAlignedBull
+pmBearRangeExtremeSetup := pmBearRangeExtremeSetup and pmBiasAlignedBear
+
 amBullRangeExtremeSetup := amBullRangeExtremeSetup and slotCanOpenTrade
 amBearRangeExtremeSetup := amBearRangeExtremeSetup and slotCanOpenTrade
 pmBullRangeExtremeSetup := pmBullRangeExtremeSetup and slotCanOpenTrade
